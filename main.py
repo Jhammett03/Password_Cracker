@@ -11,50 +11,6 @@ import matplotlib.pyplot as plt
 def sha256_hash(data: str) -> str:
     return hashlib.sha256(data.encode()).hexdigest()
 
-
-#finds two different inputs which produce the same truncated hash
-#seen_hashes is used to track already seen hashes
-#return first collision found
-def find_collision(truncated_bits: int):
-    seen_hashes = {}
-    attempts = 0
-    start_time = time.time()
-    while True:
-        random_input = str(random.randint(0, 10 ** 10))
-        hash_full = sha256_hash(random_input)
-        truncated_hash = hash_full[:truncated_bits // 4]  # Convert bits to hex chars
-        if truncated_hash in seen_hashes:
-            return seen_hashes[truncated_hash], random_input, attempts, time.time() - start_time
-        seen_hashes[truncated_hash] = random_input
-        attempts += 1
-
-#runs collsion checks on shadow list and keeps track of their time taken and number of attempts needed
-#plots data
-def run_collision_experiments():
-    bit_sizes = list(range(8, 51, 2))
-    attempts_list = []
-    time_list = []
-
-    for bits in bit_sizes:
-        _, _, attempts, duration = find_collision(bits)
-        attempts_list.append(attempts)
-        time_list.append(duration)
-
-    # Plotting
-    plt.figure()
-    plt.plot(bit_sizes, time_list, marker='o')
-    plt.xlabel("Digest Size (bits)")
-    plt.ylabel("Time to Find Collision (seconds)")
-    plt.title("Digest Size vs Collision Time")
-    plt.show()
-
-    plt.figure()
-    plt.plot(bit_sizes, attempts_list, marker='o')
-    plt.xlabel("Digest Size (bits)")
-    plt.ylabel("Attempts to Find Collision")
-    plt.title("Digest Size vs Number of Inputs")
-    plt.show()
-
 # Crack password in a given chunk, stopping if another process finds it
 def crack_password_chunk(chunk, stored_hash, result_dict, progress_queue, user, stop_event):
     for idx, word in enumerate(chunk):
@@ -129,5 +85,3 @@ if __name__ == "__main__":
 
     cracked_passwords = crack_bcrypt_passwords_parallel(shadow_file, wordlist, num_processes=num_processes)
     print(cracked_passwords)
-
-    run_collision_experiments()
