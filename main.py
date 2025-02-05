@@ -1,6 +1,5 @@
 import hashlib
 import string
-
 import bcrypt
 import random
 import time
@@ -9,6 +8,10 @@ import multiprocessing
 import Crypto
 from collections import defaultdict
 import matplotlib.pyplot as plt
+import ssl
+import certifi
+
+ssl._create_default_https_context = ssl._create_unverified_context
 
 
 """TASK 1"""
@@ -95,17 +98,20 @@ def make_plot(x, y, title):
 
 """TASK 2"""
 # Crack password in a given chunk, stopping if another process finds it
-def crack_password_chunk(chunk, stored_hash, result_dict, progress_queue, user, stop_event):
+def crack_password_chunk(chunk, stored_hash, result_dict, progress_queue, user, stop_event, start_time):
     for idx, word in enumerate(chunk):
         if stop_event.is_set():  # Check if another process found the password
             return
         if bcrypt.checkpw(word.encode(), stored_hash.encode()):
             result_dict[user] = word
+            end_time = time.time()
+            elapsed = end_time  - start_time
+            print(elapsed)
             print(f"[SUCCESS] User '{user}' cracked! Password: {word}")
             stop_event.set()  # Notify all other processes to stop
             return
-        if idx % 1000 == 0: # helpful for showing progress of how many attempts
-            progress_queue.put((user, idx))
+        if idx % 1000 == 0 and idx != 0: # helpful for showing progress of how many attempts
+            progress_queue.put((user, 1000))
 
 
 def crack_bcrypt_passwords_parallel(shadow_file, wordlist, num_processes=4):
@@ -117,6 +123,7 @@ def crack_bcrypt_passwords_parallel(shadow_file, wordlist, num_processes=4):
             _, algo, workfactor, salt_hash = hash_str.split('$')
             salt = salt_hash[:22]
             stored_hash = f"$2b${workfactor}${salt}{salt_hash[22:]}"
+            start_time = time.time()
 
             chunk_size = len(wordlist) // num_processes
             chunks = [wordlist[i:i + chunk_size] for i in range(0, len(wordlist), chunk_size)]
@@ -129,7 +136,7 @@ def crack_bcrypt_passwords_parallel(shadow_file, wordlist, num_processes=4):
             processes = []
             for chunk in chunks:
                 p = multiprocessing.Process(target=crack_password_chunk,
-                                            args=(chunk, stored_hash, result_dict, progress_queue, user, stop_event))
+                                            args=(chunk, stored_hash, result_dict, progress_queue, user, stop_event, start_time))
                 processes.append(p)
                 p.start()
 
@@ -138,7 +145,8 @@ def crack_bcrypt_passwords_parallel(shadow_file, wordlist, num_processes=4):
                 while not progress_queue.empty():
                     user, checked = progress_queue.get()
                     total_checked += checked
-                    print(f"[STATUS] Cracking '{user}': Checked {total_checked}/{len(wordlist)} passwords...")
+                    current_elapsed = time.time() - start_time
+                    print(f"[STATUS] Cracking '{user}': Checked {total_checked}/{len(wordlist)} passwords : Time elapsed : {int(current_elapsed)} seconds")
 
             for p in processes:
                 p.join()
@@ -150,20 +158,20 @@ def crack_bcrypt_passwords_parallel(shadow_file, wordlist, num_processes=4):
 
 
 if __name__ == "__main__":
-    #Task 1: Part a
-    print("-------------- Task 1: Part a --------------\n")
-    task1_a()
-    print("-------------- Task 1: Part b --------------\n")
-    task1_b()
-    print("-------------- Task 1: Part c --------------\n")
-    result = task1_c()
-    make_plot(result[2], result[1], "Digest Size vs Time")
-    make_plot(result[2], result[0], "Digest Size vs Number of Inputs")
-    print('\n-------------- Task 2 --------------\n')
+    # #Task 1: Part a
+    # print("-------------- Task 1: Part a --------------\n")
+    # task1_a()
+    # print("-------------- Task 1: Part b --------------\n")
+    # task1_b()
+    # print("-------------- Task 1: Part c --------------\n")
+    # result = task1_c()
+    # make_plot(result[2], result[1], "Digest Size vs Time")
+    # make_plot(result[2], result[0], "Digest Size vs Number of Inputs")
+    # print('\n-------------- Task 2 --------------\n')
     do = True
     while do:
-        #userin = input("Do you want to run task 2? Y/N ")
         userin = 'N'
+        userin = input("Do you want to run task 2? Y/N ")
         if userin == 'Y':
             nltk.download('words') #note: if words is already downloaded it will show an error message, but will keep running
             wordlist = [w for w in nltk.corpus.words.words() if 6 <= len(w) <= 10]
